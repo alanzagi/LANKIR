@@ -11,15 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tickets', function (Blueprint $table) {
+        Schema::create('operators', function (Blueprint $table) {
             $table->id();
-
-            $table->string('code')->unique();
-            $table->string('qr_path')->nullable();
-
-            $table->timestamp('issued_at');
-            $table->timestamp('expired_at')->nullable();
-
+            $table->string('name');
+            $table->bigInteger('balance')->default(0);
             $table->timestamps();
         });
     }
@@ -29,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('tickets');
+        Schema::dropIfExists('operators');
     }
 };

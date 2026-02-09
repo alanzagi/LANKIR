@@ -2,67 +2,100 @@
 
 namespace App\Services;
 
-use App\Models\ParkingSession;
-use App\Models\Ticket;
-use App\Models\Tariff;
-use App\Enums\ParkingStatus;
-use Carbon\Carbon;
-use Exception;
+use App\Models\Vehicle;
+use App\Models\Operator;
+use App\Models\Payment;
+use App\Models\ParkingTransaction;
+use Illuminate\Support\Facades\DB;
 
 class ParkingService
 {
   /**
-   * Parkir masuk
+   * Kendaraan masuk parkir
    */
-  public function parkIn(
-    Ticket $ticket,
-    Tariff $tariff,
-    string $vehicleType
-  ): ParkingSession {
-    // Cegah double park
-    if ($ticket->parkingSession) {
-      throw new Exception('Ticket already used for parking.');
-    }
+  public function enter(
+    string $plateNumber,
+    string $type,
+    string $driverName
+  ): ParkingTransaction {
+    return DB::transaction(function () use ($plateNumber, $type, $driverName) {
 
-    return ParkingSession::create([
-      'ticket_id'   => $ticket->id,
-      'tariff_id'   => $tariff->id,
-      'vehicle_type' => $vehicleType,
-      'time_in'     => Carbon::now(),
-      'status'      => ParkingStatus::IN,
-    ]);
+      $vehicle = Vehicle::firstOrCreate(
+        ['plate_number' => $plateNumber],
+        [
+          'type' => $type,
+          'driver_name' => $driverName,
+        ]
+      );
+
+      if ($vehicle->activeParking()->exists()) {
+        throw new \Exception('Kendaraan masih sedang parkir');
+      }
+
+      return ParkingTransaction::create([
+        'vehicle_id' => $vehicle->id,
+        'entered_at' => now(),
+        'status'     => ParkingTransaction::STATUS_PARKED,
+      ]);
+    });
   }
 
   /**
-   * Tandai siap bayar
+   * Kendaraan keluar parkir
    */
-  public function markWaitingPayment(ParkingSession $session): ParkingSession
-  {
-    if ($session->status !== ParkingStatus::IN) {
-      throw new Exception('Invalid parking status transition.');
-    }
+  public function exitParking(
+    string $plateNumber,
+    Operator $operator
+  ): ParkingTransaction {
+    return DB::transaction(function () use ($plateNumber, $operator) {
 
-    $session->update([
-      'status' => ParkingStatus::WAIT_PAYMENT,
-    ]);
+      $vehicle = Vehicle::where('plate_number', $plateNumber)->first();
 
-    return $session;
+      if (!$vehicle) {
+        throw new \Exception('Kendaraan tidak ditemukan');
+      }
+
+      $transaction = $vehicle->activeParking()->first();
+
+      if (!$transaction) {
+        throw new \Exception('Kendaraan tidak sedang parkir');
+      }
+
+      $fee = $this->calculateFee($transaction);
+
+      $transaction->update([
+        'exited_at' => now(),
+        'fee'       => $fee,
+        'status'    => ParkingTransaction::STATUS_COMPLETED,
+      ]);
+
+      Payment::create([
+        'parking_transaction_id' => $transaction->id,
+        'operator_id'             => $operator->id,
+        'amount'                  => $fee,
+        'paid_at'                 => now(),
+      ]);
+
+      $operator->increment('balance', $fee);
+
+      return $transaction;
+    });
   }
 
   /**
-   * Tandai keluar parkir
+   * Hitung tarif parkir
    */
-  public function markOut(ParkingSession $session): ParkingSession
+  protected function calculateFee(ParkingTransaction $transaction): int
   {
-    if ($session->status !== ParkingStatus::PAID) {
-      throw new Exception('Parking not paid.');
-    }
+    $minutes = $transaction->durationInMinutes();
+    $hours   = max(1, ceil($minutes / 60));
 
-    $session->update([
-      'status'   => ParkingStatus::OUT,
-      'time_out' => Carbon::now(),
-    ]);
+    $rate = match ($transaction->vehicle->type) {
+      'motor' => 2000,
+      'mobil' => 5000,
+      default => throw new \Exception('Jenis kendaraan tidak valid'),
+    };
 
-    return $session;
+    return $hours * $rate;
   }
 }

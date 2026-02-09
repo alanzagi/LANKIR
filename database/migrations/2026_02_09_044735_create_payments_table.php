@@ -13,18 +13,10 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-
-            $table->foreignId('parking_session_id')
-                ->constrained()
-                ->cascadeOnDelete();
-
-            $table->integer('amount');
-
-            $table->string('method'); // cash, qris, dll
-            $table->string('status'); // PENDING, PAID, FAILED
-
-            $table->timestamp('paid_at')->nullable();
-
+            $table->foreignId('parking_transaction_id')->constrained();
+            $table->foreignId('operator_id')->constrained();
+            $table->bigInteger('amount');
+            $table->timestamp('paid_at');
             $table->timestamps();
         });
     }

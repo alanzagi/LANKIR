@@ -11,16 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('cameras', function (Blueprint $table) {
+        Schema::create('vehicles', function (Blueprint $table) {
             $table->id();
-
-            $table->foreignId('gate_id')
-                ->constrained()
-                ->cascadeOnDelete();
-
-            $table->string('type'); // QR / PLATE
-            $table->string('endpoint_key')->unique();
-
+            $table->string('plate_number')->unique();
+            $table->enum('type', ['motor', 'mobil']);
+            $table->string('driver_name');
             $table->timestamps();
         });
     }
@@ -30,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('cameras');
+        Schema::dropIfExists('vehicles');
     }
 };
