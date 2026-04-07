@@ -12,11 +12,16 @@ class ParkingTransaction extends Model
     const STATUS_COMPLETED = 'completed';
 
     protected $fillable = [
-        'vehicle_id',
-        'entered_at',
-        'exited_at',
-        'fee',
+        'plate_number',
+        'vehicle_type_id',
+        'check_in_at',
+        'check_out_at',
+        'duration_minutes',
+        'total_fee',
         'status',
+        'void_reason',
+        'voided_by',
+        'voided_at',
     ];
 
     protected $casts = [
@@ -47,5 +52,10 @@ class ParkingTransaction extends Model
     {
         $end = $this->exited_at ?? now();
         return $this->entered_at->diffInMinutes($end);
+    }
+
+    public function operator()
+    {
+        return $this->belongsTo(User::class, 'operator_id');
     }
 }

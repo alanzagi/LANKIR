@@ -13,10 +13,6 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('parking_transaction_id')->constrained();
-            $table->foreignId('operator_id')->constrained();
-            $table->bigInteger('amount');
-            $table->timestamp('paid_at');
             $table->timestamps();
         });
     }
